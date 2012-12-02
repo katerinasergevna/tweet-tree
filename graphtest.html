@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8">
+<title>Top-20 tweets</title>
+<script type="text/javascript" src="http://d3js.org/d3.v2.js"></script>
+<script language="javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.6.4/jquery.min.js" type="text/javascript"></script>
+<link rel="stylesheet" href="tweet.css" type="text/css">
+</head>
+<body>
+<div id="main">
+<input type="text" id="hash_tag" size="40" />
+<input type="button" id="button" value="Search" />
+</div>
+<div id="result"></div>
+<div id="chart"></div>
+<script type="text/javascript">
+$('#button').click( function()
+{
+$.getJSON("http://search.twitter.com/search.json?rpp=20&callback=?&q=%23"+$('#hash_tag').val(), 
+function(data)
+	{	
+
+	var w = 960, h = 500,  node,    link,  root;
+
+	var force = d3.layout.force()
+    .on("tick", tick)
+    .size([w, h]);
+	
+	var vis = d3.select("#chart").append("svg:svg")
+    .attr("width", w)
+    .attr("height", h);
+	
+	var json = '{"name": "'+$('#hash_tag')+'","children": [';
+		for(var i=0;i<data.results.length;i++)
+		{
+			json = json+'{ "name": "'+data.results[i].from_user+'"}';
+			if(i<data.results.length-1) json = json+','
+		}
+	json=json+']}';
+	root = jQuery.parseJSON(json); 
+	update();
+
+	function update() 
+	{
+		var nodes = flatten(root),
+		links = d3.layout.tree().links(nodes);
+
+  // Restart the force layout.
+		force
+		.nodes(nodes)
+		.links(links)
+		.start();
+
+  // Update the links…
+		link = vis.selectAll("line.link")
+		.data(links, function(d) { return d.target.id; });
+
+  // Enter any new links.
+		link.enter().insert("svg:line", ".node")
+		.attr("class", "link")
+		.attr("x1", function(d) { return d.source.x; })
+		.attr("y1", function(d) { return d.source.y; })
+		.attr("x2", function(d) { return d.target.x; })
+		.attr("y2", function(d) { return d.target.y; });
+
+  // Exit any old links.
+		link.exit().remove();
+
+  // Update the nodes…
+		node = vis.selectAll("circle.node")
+		.data(nodes, function(d) { return d.id; })
+		.style("fill", color);
+	
+  // Enter any new nodes.
+		node.enter().append("svg:circle")
+		.attr("class", "node")
+		.attr("cx", function(d) { return d.x; })
+		.attr("cy", function(d) { return d.y; })
+		.attr("r", function(d) { if(d.children) return 10; else return 5; })
+		.style("fill", color)
+		.on("click", click)
+		.call(force.drag);  
+node.append("text")
+    .attr("x", 12)
+    .attr("dy", ".35em")
+    .text(function(d) { return d.name; });
+  // Exit any old nodes.
+		node.exit().remove();
+	}
+
+	function tick() 
+	{
+		link.attr("x1", function(d) { return d.source.x; })
+		.attr("y1", function(d) { return d.source.y; })
+		.attr("x2", function(d) { return d.target.x; })
+		.attr("y2", function(d) { return d.target.y; });
+
+		node.attr("cx", function(d) { return d.x; })
+		.attr("cy", function(d) { return d.y; });	
+	}
+
+// Color leaf nodes orange, and packages white or blue.
+	function color(d) 
+	{
+		return d._children ? "#fd8d3c" : d.children ? "#c6dbef" : "#c6dbef";
+	}
+
+// Toggle children on click.
+	function click(d) 
+	{
+		if (d.children) 
+		{
+			d._children = d.children;
+			d.children = null;
+		} else 
+		{
+			d.children = d._children;
+			d._children = null;
+		}
+		update();
+	}
+
+// Returns a list of all nodes under the root.
+	function flatten(root) 
+	{
+		var nodes = [], i = 0;
+
+		function recurse(node) 
+		{
+			if (node.children) node.children.forEach(recurse);
+			if (!node.id) node.id = ++i;
+			nodes.push(node);
+		}
+
+		recurse(root);
+		return nodes;
+	}
+});
+});
+</script>
+</body>
+</html>
